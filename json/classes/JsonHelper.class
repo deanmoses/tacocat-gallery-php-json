@@ -1,0 +1,93 @@
+<?php
+
+
+
+/**
+ * Helper class for the Json module
+ * @package Json
+ * @subpackage Classes
+ * @author Dean Moses <http://tacocat.com>
+ * @version $Revision$
+ * @static
+ */
+class JsonHelper {
+
+
+
+
+    /**
+     * Return the album with all of its subitems, in a format that's appropriate 
+     * to be turned into JSON and sent across the wire.
+     */
+    function getAlbum($path) {
+		global $gallery;
+		
+		/* look up album ID from album path */
+		$albumId = $this->getAlbumIdByPath($path);
+		if (empty($albumId)) throw new Exception('Could not find album ' + $path);
+		
+
+		/* get gallery entity by id */
+		list ($ret, $entity) = GalleryCoreApi::loadEntitiesById($albumId, 'GalleryEntity');
+		if ($ret) throw new Exception("error getting loadEntitiesById");
+
+		$memberData = $this->getReducedItem($entity);
+
+		/* get child IDs */
+		list ($ret, $childIds) = GalleryCoreApi::fetchChildItemIds($entity);
+
+		if ($ret) {
+		    return $ret;
+		}
+
+		/* get child entities */
+		list ($ret, $childEntities) = GalleryCoreApi::loadEntitiesById($childIds, 'GalleryEntity');
+		if ($ret) throw new Exception("error loading child entities");
+
+		$reducedChildEntities = array();
+		foreach ($childEntities as $childEntity) {
+			list ($ret, $resizes)  = GalleryCoreApi::fetchResizesByItemIds( (array) $childEntity->id  );
+			if ($ret) throw new Exception("error fetchResizesByItemIds");
+			
+			$childEnity['resizes'] = $resizes;
+			$reducedChildEntities[] = $childEntity;//$this->getReducedItem($childEntity);
+		}
+
+		$memberData['children'] = $reducedChildEntities;
+
+		/* send JSON */
+		print(json_encode($memberData));
+
+		return null;
+    }
+    
+    /**
+     * Retrieve the album ID for the specified path
+     *
+     * @path like '2013/01_31'
+     */
+    function getAlbumIdByPath($path) {
+    
+	    // Get ID of root album
+		list ($ret, $currentId) = GalleryCoreApi::getDefaultAlbumId();
+		if ($ret) throw new Exception($ret); 
+
+		// Walk through path until we get to the ID of the final item
+		foreach (preg_split('|/|', $path, -1, PREG_SPLIT_NO_EMPTY) as $pathComponent) {
+			list ($ret, $currentId) =
+			GalleryCoreApi::fetchChildIdByPathComponent($currentId, $pathComponent);
+		    if ($ret) throw new Exception("No such path: $pathComponent"); 
+		}
+	
+		$albumId = $currentId;
+
+		/* if no album ID was found, default to root album */
+		if (empty($albumId)) {
+			list ($ret, $albumId) = GalleryCoreApi::getDefaultAlbumId();
+			if ($ret) throw new Exception("Could not find root album"); 
+		}
+		
+		return $albumId;
+    }
+}
+?>
