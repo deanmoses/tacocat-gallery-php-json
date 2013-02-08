@@ -74,6 +74,8 @@ class SaveCaptionView extends GalleryView {
 		// Retrieve gallery entity by ID
 		list ($ret, $entity) = GalleryCoreApi::loadEntitiesById($entityId, 'GalleryItem');
 		if ($ret) {
+			// Free the lock
+			GalleryCoreApi::releaseLocks($lockId);
 			header(':', true, 400);
 			print(json_encode("error:  could not find entity with ID: " + $entityId));
 		    return;
@@ -86,19 +88,14 @@ class SaveCaptionView extends GalleryView {
 		// save GalleryEntity
 		$saveStatusCode = $entity->save();
 		
+		// Free the lock
+		GalleryCoreApi::releaseLocks($lockId);
+		
 		if (isset($saveStatusCode) && isset($saveStatusCode->_errorCode)) {
 			header(':', true, 500);
 			print(json_encode("error saving: " + $saveStatusCode->getAsText()));
 			trigger_error($saveStatusCode->getAsText(), E_USER_WARNING);
 		    return;
-		}
-		
-		// Free the lock
-		$ret = GalleryCoreApi::releaseLocks($lockId);
-		if ($ret) {
-			header(':', true, 400);
-			print $ret->getAsText(); 
-			return; 
 		}
 		
 		// send JSON
