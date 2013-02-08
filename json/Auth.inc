@@ -52,15 +52,19 @@ class AuthView extends GalleryView {
 		
 		// The response object that will be returned as JSON
 		$response = array();
-
-		$galleryStatus = GalleryCoreApi::assertUserIsSiteAdministrator();
-
 		
-		if ($galleryStatus && $galleryStatus->getErrorCode()) {
-			$response['authenticated'] = false;
+		// Set up isAuthenticated status
+		list ($ret, $isAnonymousUser) = GalleryCoreApi::isAnonymousUser();
+
+		$response['isAuthenticated'] = !$isAnonymousUser;
+
+		// Set up isSiteAdmin status
+		if ($isAnonymousUser) {
+			$response['isSiteAdmin'] = false;
 		}
 		else {
-			$response['authenticated'] = true;
+			$galleryStatus = GalleryCoreApi::assertUserIsSiteAdministrator();
+			$response['isSiteAdmin'] = !($galleryStatus && $galleryStatus->getErrorCode());
 		}
 		
 		print(json_encode($response));
