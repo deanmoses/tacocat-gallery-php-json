@@ -56,9 +56,10 @@ class AlbumView extends GalleryView {
 		// Get the album's path ID from the query string
 		$path = $_GET['album'];
 
+		// Figure out the album's ID from its path
 		$albumId = JsonHelper::getAlbumIdByPath($path);
 
-		/* get gallery entity by id */
+		// Retrieve gallery entity by ID
 		list ($ret, $entity) = GalleryCoreApi::loadEntitiesById($albumId, 'GalleryEntity');
 		if ($ret) {
 			print("error getting loadEntitiesById");
