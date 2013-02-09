@@ -51,8 +51,18 @@ class SaveCaptionView extends GalleryView {
 		    $phpVm->header('Pragma: no-cache'); 
 		}
 		
-		// Get the current user's ID
-		$userId = $gallery->getActiveUserId();
+		// Go no further if user isn't logged in
+		list ($ret, $isAnonymousUser) = GalleryCoreApi::isAnonymousUser();
+		if ($ret) {
+			header(':', true, 500);
+			print(json_encode("error: " + $ret->getAsText()));
+		   return;
+		}
+		if ($isAnonymousUser) {
+      	header(':', true, 401);
+			print(json_encode("unauthorized to modify " + $entityId));
+			return;
+		}
 
 		// Get the entity's ID from the request
 		$entityId = $_POST['id'];
@@ -65,31 +75,14 @@ class SaveCaptionView extends GalleryView {
 			return;
 		}
 		
+		// Ensure the user has permission to edit this item
 		$ret = GalleryCoreApi::assertHasItemPermission($entityId, 'core.edit');
 		if ($ret) {
       	header(':', true, 401);
 			print(json_encode("unauthorized to modify " + $entityId));
 			return;
 		}
-		
-		/*
-		// Figure out if the current user has permission to modify the entity
-		//list ($ret, $hasPermission) = GalleryCoreApi::hasPermission($entityId, $userId, 'core.edit');
-		if ($ret) {
-			header(':', true, 500);
-			print(json_encode("error checking permissions: " + $ret->getAsText()));
-			trigger_error($ret->getAsText(), E_USER_WARNING);
-			return;
-		}
-		
-		// If user isn't authorized, return a 401
-		if (!$hasPermission) {
-			header(':', true, 401);
-			print(json_encode("unauthorized to modify " + $entityId);
-			return;
-		}
-		*/
-		
+
 		// Acquire a write lock on the entity
 		list ($ret, $lockId) = GalleryCoreApi::acquireWriteLock($entityId);
 		if ($ret) {
