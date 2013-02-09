@@ -50,12 +50,14 @@ class SaveCaptionView extends GalleryView {
 		    $phpVm->header('Cache-Control: no-cache');
 		    $phpVm->header('Pragma: no-cache'); 
 		}
+		
+		// Get the current user's ID
+		$userId = $gallery->getActiveUserId();
 
 		// Get the entity's ID from the request
 		$entityId = $_POST['id'];
-		$title = $_POST['title'];
-		$description = $_POST['description'];
-		
+
+		// Return error if the entity isn't found
 		if (!isset($entityId)) {
 			trigger_error("no ID", E_USER_WARNING);
 			header(':', true, 400);
@@ -63,10 +65,35 @@ class SaveCaptionView extends GalleryView {
 			return;
 		}
 		
+		$ret = GalleryCoreApi::assertHasItemPermission($entityId, 'core.edit');
+		if ($ret) {
+      	header(':', true, 401);
+			print(json_encode("unauthorized to modify " + $entityId));
+			return;
+		}
+		
+		/*
+		// Figure out if the current user has permission to modify the entity
+		//list ($ret, $hasPermission) = GalleryCoreApi::hasPermission($entityId, $userId, 'core.edit');
+		if ($ret) {
+			header(':', true, 500);
+			print(json_encode("error checking permissions: " + $ret->getAsText()));
+			trigger_error($ret->getAsText(), E_USER_WARNING);
+			return;
+		}
+		
+		// If user isn't authorized, return a 401
+		if (!$hasPermission) {
+			header(':', true, 401);
+			print(json_encode("unauthorized to modify " + $entityId);
+			return;
+		}
+		*/
+		
 		// Acquire a write lock on the entity
 		list ($ret, $lockId) = GalleryCoreApi::acquireWriteLock($entityId);
 		if ($ret) {
-			header(':', true, 400);
+			header(':', true, 500);
 			print $ret->getAsText(); 
 			return; 
 		}
@@ -81,25 +108,30 @@ class SaveCaptionView extends GalleryView {
 		    return;
 		}
 		
-		// set title and description on the entity
+		// set new title on the entity if one was sent
+		$title = $_POST['title'];
 		if (isset($title)) $entity->setTitle($title);
+		
+		// set new description on the entity if one was sent
+		$description = $_POST['description'];
 		if (isset($description)) $entity->setDescription($description);
 		
-		// save GalleryEntity
+		// save the entity
 		$saveStatusCode = $entity->save();
 		
-		// Free the lock
+		// free the lock
 		GalleryCoreApi::releaseLocks($lockId);
 		
+		// return an error if the save failed
 		if (isset($saveStatusCode) && isset($saveStatusCode->_errorCode)) {
 			header(':', true, 500);
 			print(json_encode("error saving: " + $saveStatusCode->getAsText()));
 			trigger_error($saveStatusCode->getAsText(), E_USER_WARNING);
-		    return;
+		   return;
 		}
 		
 		// send JSON
-		print(json_encode($saveStatusCode));
+		print(json_encode('success'));
 
 		return null;
 	}
